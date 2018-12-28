@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:util="http://www.springframework.org/schema/util"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+		http://www.springframework.org/schema/context
+		http://www.springframework.org/schema/context/spring-context-4.2.xsd
+        http://www.springframework.org/schema/mvc
+        http://www.springframework.org/schema/mvc/spring-mvc-4.2.xsd
+        http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
+
+    <import resource="spring-dao.xml"/>
+    <import resource="spring-redis.xml"/>
+    <context:component-scan base-package="com.yuan"></context:component-scan>
+
+    <!-- shiro自带过滤器 -->
+    <bean id="shiroFilter" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"></property>
+        <property name="loginUrl" value="login.html"></property>
+        <property name="unauthorizedUrl" value="403.html"></property>
+        <property name="filterChainDefinitions">
+            <value>
+                /login.html = anon
+                /subLogin = anon
+                /testRole1 = roles["admin"]
+                /testRole2 = roles["admin","admin1"]
+                /testPerms1 = perms["user:delete"]
+                /testPerms2 = perms["user:delete","user:update"]
+                /testRoleZDY = rolesOr["admin","admin1"]
+                /* = authc
+            </value>
+        </property>
+        <!-- 使用自定义过滤器时，需要的配置项 -->
+        <property name="filters">
+            <util:map>
+                <entry key="rolesOr" value-ref="rolesOrFilter"/>
+            </util:map>
+        </property>
+    </bean>
+
+    <!-- 自定义shiro过滤器 -->
+    <bean id="rolesOrFilter" class="com.yuan.filter.RolesOrFilter"/>
+
+    <!-- 创建SecurityManager对象 -->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="realm" ref="realm"></property>
+        <property name="sessionManager" ref="sessionManager"></property>
+        <property name="cacheManager" ref="cacheManager"></property>
+        <property name="rememberMeManager" ref="cookieRememberMeManager"/>
+    </bean>
+
+    <!-- 创建自定义Realm对象 -->
+    <bean id="realm" class="com.yuan.shiro.realm.CustomRealm">
+        <property name="credentialsMatcher" ref="credentialsMatcher"></property>
+    </bean>
+
+    <!-- 创建加密管理器对象 -->
+    <bean id="credentialsMatcher" class="org.apache.shiro.authc.credential.HashedCredentialsMatcher">
+        <property name="hashAlgorithmName" value="md5"></property>
+        <property name="hashIterations" value="1"></property>
+    </bean>
+
+    <!-- shiro会话管理 -->
+    <!-- 注释掉的bean是采用shiro自带的SessionManager，完善后使用的是自定义的SessionManager，来解决多次访问redis的问题 -->
+    <!-- <bean id="sessionManager" class="org.apache.shiro.web.session.mgt.DefaultWebSessionManager"> -->
+    <bean id="sessionManager" class="com.yuan.session.CustomSessionManager">
+        <property name="sessionDAO" ref="redisSessionDao"/>
+    </bean>
+    <bean id="redisSessionDao" class="com.yuan.session.RedisSessionDao"></bean>
+
+    <!-- shiro缓存管理 -->
+    <bean id="cacheManager" class="com.yuan.cache.RedisCacheManager"></bean>
+
+    <!-- shiro自动登录 -->
+    <bean id="cookieRememberMeManager" class="org.apache.shiro.web.mgt.CookieRememberMeManager">
+        <property name="cookie" ref="cookie"/>
+    </bean>
+    <bean id="cookie" class="org.apache.shiro.web.servlet.SimpleCookie">
+        <constructor-arg value="rememberMe"/>
+        <property name="maxAge" value="200000000"/>
+    </bean>
+</beans>
